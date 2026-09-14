@@ -1,0 +1,1460 @@
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local LocalPlayer      = Players.LocalPlayer
+
+local whitelistedPlayers = {}
+local loopFlingPlayers   = {}
+
+getgenv().FPDH = workspace.FallenPartsDestroyHeight
+
+local flingDurationPerPlayer = 2
+local delayBetweenPlayers    = 0.05
+
+-- ── Core Fling Engine ────────────────────────────────
+local function flingPlayer(TargetPlayer)
+	local Character = LocalPlayer.Character
+	local Humanoid  = Character and Character:FindFirstChildOfClass("Humanoid")
+	local RootPart  = Humanoid and Humanoid.RootPart
+
+	local TCharacter = TargetPlayer.Character
+	local THumanoid  = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+	local TRootPart  = THumanoid and THumanoid.RootPart
+	local THead      = TCharacter and TCharacter:FindFirstChild("Head")
+	local Accessory  = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+	local Handle     = Accessory and Accessory:FindFirstChild("Handle")
+
+	if Character and Humanoid and RootPart then
+		if RootPart.Velocity.Magnitude < 50 then
+			getgenv().OldPos = RootPart.CFrame
+		end
+		if THumanoid and THumanoid.Sit then return end
+
+		if THead then
+			workspace.CurrentCamera.CameraSubject = THead
+		elseif Handle then
+			workspace.CurrentCamera.CameraSubject = Handle
+		else
+			workspace.CurrentCamera.CameraSubject = THumanoid
+		end
+
+		if not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
+
+		local function FPos(BasePart, Pos, Ang)
+			RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+			Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+			RootPart.Velocity    = Vector3.new(9e7, 9e7 * 10, 9e7)
+			RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+		end
+
+		local function SFBasePart(BasePart)
+			local Time  = tick()
+			local Angle = 0
+			repeat
+				if RootPart and THumanoid then
+					if BasePart.Velocity.Magnitude < 50 then
+						Angle = Angle + 100
+						FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+						task.wait()
+					else
+						FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(-90), 0, 0))
+						task.wait()
+						FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+						task.wait()
+					end
+				else
+					break
+				end
+			until BasePart.Velocity.Magnitude > 500
+				or BasePart.Parent ~= TargetPlayer.Character
+				or TargetPlayer.Parent ~= Players
+				or not TargetPlayer.Character == TCharacter
+				or THumanoid.Sit
+				or Humanoid.Health <= 0
+				or tick() > Time + flingDurationPerPlayer
+		end
+
+		workspace.FallenPartsDestroyHeight = 0/0
+		local BV = Instance.new("BodyVelocity")
+		BV.Name = "EpixVel"
+		BV.Parent = RootPart
+		BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+		BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+		Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+		if TRootPart and THead then
+			if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then
+				SFBasePart(THead)
+			else
+				SFBasePart(TRootPart)
+			end
+		elseif TRootPart and not THead then
+			SFBasePart(TRootPart)
+		elseif not TRootPart and THead then
+			SFBasePart(THead)
+		elseif not TRootPart and not THead and Accessory and Handle then
+			SFBasePart(Handle)
+		end
+
+		BV:Destroy()
+		Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+		workspace.CurrentCamera.CameraSubject = Humanoid
+
+		repeat
+			RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+			Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+			Humanoid:ChangeState("GettingUp")
+			for _, x in pairs(Character:GetChildren()) do
+				if x:IsA("BasePart") then
+					x.Velocity, x.RotVelocity = Vector3.new(), Vector3.new()
+				end
+			end
+			task.wait()
+		until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+
+		workspace.FallenPartsDestroyHeight = getgenv().FPDH
+	end
+end
+
+-- ── State ────────────────────────────────────────────
+local isActive          = false
+local selectModeActive  = false
+local antiAfkActive     = false
+local freecamActive     = false
+local boxEspActive      = false
+local nameEspActive     = false
+local currentActiveTab  = "Main"
+
+local LOGO_ID = "rbxassetid://106158447709741"
+
+-- ── Theme ────────────────────────────────────────────
+local THEME = {
+	Bg        = Color3.fromRGB(15, 15, 18),
+	Panel     = Color3.fromRGB(22, 22, 28),
+	Input     = Color3.fromRGB(30, 30, 36),
+	InputBrd  = Color3.fromRGB(50, 50, 60),
+	Row       = Color3.fromRGB(26, 26, 32),
+	RowBrd    = Color3.fromRGB(45, 45, 55),
+	Accent    = Color3.fromRGB(80, 140, 255),
+	Accent2   = Color3.fromRGB(60, 110, 240),
+	Text      = Color3.fromRGB(255, 255, 255),
+	TextDim   = Color3.fromRGB(150, 150, 160),
+	Red       = Color3.fromRGB(220, 50, 50),
+	Green     = Color3.fromRGB(120, 255, 120),
+	Off       = Color3.fromRGB(40, 30, 30),
+}
+
+local function addRainbow(parent, thickness)
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness       = thickness
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color           = Color3.fromRGB(255, 0, 0)
+	stroke.Parent          = parent
+	task.spawn(function()
+		local hue = 0
+		while stroke.Parent do
+			hue = (hue + 0.004) % 1
+			pcall(function() stroke.Color = Color3.fromHSV(hue, 1, 1) end)
+			RunService.RenderStepped:Wait()
+		end
+	end)
+	return stroke
+end
+
+local function addCorner(parent, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = parent
+	return c
+end
+
+local function makeButton(parent, text, size, position, bg, fg)
+	local btn = Instance.new("TextButton")
+	btn.Size               = size
+	btn.Position           = position
+	btn.BackgroundColor3   = bg
+	btn.BorderSizePixel    = 0
+	btn.Text               = text
+	btn.TextColor3         = fg
+	btn.Font               = Enum.Font.GothamBold
+	btn.TextSize           = 13
+	btn.AutoButtonColor    = false
+	btn.Parent             = parent
+	addCorner(btn, 8)
+	return btn
+end
+
+local function hoverTween(btn, normal, hover)
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = hover }):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = normal }):Play()
+	end)
+end
+
+local function makeDraggable(frame)
+	local dragging, dragInput, dragStart, startPos
+	frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = frame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	frame.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+-- ── UI Shell ─────────────────────────────────────────
+local targetParent = LocalPlayer:WaitForChild("PlayerGui")
+local OLD = targetParent:FindFirstChild("UniversalFlingUI")
+if OLD then OLD:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name           = "UniversalFlingUI"
+ScreenGui.ResetOnSpawn   = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder   = 999
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent         = targetParent
+
+-- Main frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name                   = "MainFrame"
+MainFrame.Size                   = UDim2.new(0, 400, 0, 420)
+MainFrame.Position               = UDim2.new(0, 30, 0.5, -210)
+MainFrame.BackgroundColor3       = THEME.Bg
+MainFrame.BorderSizePixel        = 0
+MainFrame.Active                 = true
+MainFrame.Parent                 = ScreenGui
+addCorner(MainFrame, 12)
+addRainbow(MainFrame, 2)
+makeDraggable(MainFrame)
+
+-- Title row (logo + title + close)
+local TitleRow = Instance.new("Frame")
+TitleRow.Size                   = UDim2.new(1, -24, 0, 30)
+TitleRow.Position               = UDim2.new(0, 12, 0, 14)
+TitleRow.BackgroundTransparency = 1
+TitleRow.Parent                 = MainFrame
+
+local LogoMain = Instance.new("ImageLabel")
+LogoMain.Size                   = UDim2.new(0, 24, 0, 24)
+LogoMain.Position               = UDim2.new(0, 0, 0.5, -12)
+LogoMain.BackgroundTransparency = 1
+LogoMain.Image                  = LOGO_ID
+LogoMain.ScaleType              = Enum.ScaleType.Fit
+LogoMain.Parent                 = TitleRow
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size                   = UDim2.new(1, -60, 1, 0)
+TitleLabel.Position               = UDim2.new(0, 32, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text                   = "KYZEN UNIVERSAL FLING"
+TitleLabel.TextColor3             = THEME.Accent
+TitleLabel.Font                   = Enum.Font.GothamBold
+TitleLabel.TextSize               = 14
+TitleLabel.TextXAlignment         = Enum.TextXAlignment.Left
+TitleLabel.Parent                 = TitleRow
+
+local CloseMain = Instance.new("TextButton")
+CloseMain.Size                   = UDim2.new(0, 22, 0, 22)
+CloseMain.Position               = UDim2.new(1, -22, 0.5, -11)
+CloseMain.BackgroundTransparency = 1
+CloseMain.Text                   = "✕"
+CloseMain.TextColor3             = THEME.TextDim
+CloseMain.Font                   = Enum.Font.GothamBold
+CloseMain.TextSize               = 15
+CloseMain.AutoButtonColor        = false
+CloseMain.Parent                 = TitleRow
+
+CloseMain.MouseEnter:Connect(function() CloseMain.TextColor3 = Color3.fromRGB(255, 120, 120) end)
+CloseMain.MouseLeave:Connect(function() CloseMain.TextColor3 = THEME.TextDim end)
+CloseMain.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+end)
+
+-- Tab bar
+local TabBar = Instance.new("Frame")
+TabBar.Size                   = UDim2.new(1, -24, 0, 30)
+TabBar.Position               = UDim2.new(0, 12, 0, 50)
+TabBar.BackgroundTransparency = 1
+TabBar.Parent                 = MainFrame
+
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection       = Enum.FillDirection.Horizontal
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tabLayout.VerticalAlignment   = Enum.VerticalAlignment.Center
+tabLayout.Padding             = UDim.new(0, 4)
+tabLayout.SortOrder           = Enum.SortOrder.LayoutOrder
+tabLayout.Parent              = TabBar
+
+local tabNames = { "Main", "Whitelist", "Looped", "Misc", "Credits" }
+local tabButtons = {}
+
+for i, name in ipairs(tabNames) do
+	local btn = Instance.new("TextButton")
+	btn.Name             = name .. "Tab"
+	btn.Size             = UDim2.new(1/5, -4, 1, 0)
+	btn.BackgroundColor3 = THEME.Row
+	btn.BorderSizePixel  = 0
+	btn.Text             = name
+	btn.TextColor3       = THEME.TextDim
+	btn.Font             = Enum.Font.GothamBold
+	btn.TextSize         = 10
+	btn.AutoButtonColor  = false
+	btn.LayoutOrder      = i
+	btn.Parent           = TabBar
+	addCorner(btn, 6)
+	tabButtons[name] = btn
+end
+
+local PageHolder = Instance.new("Frame")
+PageHolder.Size                   = UDim2.new(1, -24, 1, -140)
+PageHolder.Position               = UDim2.new(0, 12, 0, 88)
+PageHolder.BackgroundTransparency = 1
+PageHolder.Parent                 = MainFrame
+
+-- ── Page: Main ───────────────────────────────────────
+local MainPage = Instance.new("Frame")
+MainPage.Size                   = UDim2.new(1, 0, 1, 0)
+MainPage.BackgroundTransparency = 1
+MainPage.Visible                = true
+MainPage.Parent                 = PageHolder
+
+local ToggleButton = makeButton(MainPage, "Fling All: OFF",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 0),
+	THEME.Row, THEME.TextDim)
+
+local WhitelistInput = Instance.new("TextBox")
+WhitelistInput.Size              = UDim2.new(0.66, 0, 0, 38)
+WhitelistInput.Position          = UDim2.new(0, 0, 0, 50)
+WhitelistInput.BackgroundColor3  = THEME.Input
+WhitelistInput.BorderSizePixel   = 0
+WhitelistInput.Text              = ""
+WhitelistInput.PlaceholderText   = "Username to whitelist..."
+WhitelistInput.PlaceholderColor3 = THEME.TextDim
+WhitelistInput.TextColor3        = THEME.Text
+WhitelistInput.Font              = Enum.Font.Gotham
+WhitelistInput.TextSize          = 13
+WhitelistInput.TextXAlignment    = Enum.TextXAlignment.Center
+WhitelistInput.ClearTextOnFocus  = false
+WhitelistInput.Parent            = MainPage
+addCorner(WhitelistInput, 8)
+
+local wsBorder = Instance.new("UIStroke")
+wsBorder.Color           = THEME.InputBrd
+wsBorder.Thickness       = 1.5
+wsBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+wsBorder.Parent          = WhitelistInput
+
+local WhitelistButton = makeButton(MainPage, "Whitelist",
+	UDim2.new(0.32, -4, 0, 38), UDim2.new(0.68, 4, 0, 50),
+	THEME.Accent, THEME.Text)
+
+local LoopInput = Instance.new("TextBox")
+LoopInput.Size              = UDim2.new(1, 0, 0, 38)
+LoopInput.Position          = UDim2.new(0, 0, 0, 100)
+LoopInput.BackgroundColor3  = THEME.Input
+LoopInput.BorderSizePixel   = 0
+LoopInput.Text              = ""
+LoopInput.PlaceholderText   = "Target username..."
+LoopInput.PlaceholderColor3 = THEME.TextDim
+LoopInput.TextColor3        = THEME.Text
+LoopInput.Font              = Enum.Font.Gotham
+LoopInput.TextSize          = 13
+LoopInput.TextXAlignment    = Enum.TextXAlignment.Center
+LoopInput.ClearTextOnFocus  = false
+LoopInput.Parent            = MainPage
+addCorner(LoopInput, 8)
+
+local lsBorder = Instance.new("UIStroke")
+lsBorder.Color           = THEME.InputBrd
+lsBorder.Thickness       = 1.5
+lsBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+lsBorder.Parent          = LoopInput
+
+local FlingButton = makeButton(MainPage, "Fling",
+	UDim2.new(0.32, -3, 0, 38), UDim2.new(0, 0, 0, 150),
+	THEME.Accent, THEME.Text)
+
+local LoopButton = makeButton(MainPage, "Loop Fling",
+	UDim2.new(0.32, -3, 0, 38), UDim2.new(0.34, 0, 0, 150),
+	THEME.Accent, THEME.Text)
+
+local UnloopButton = makeButton(MainPage, "Unloop",
+	UDim2.new(0.32, -3, 0, 38), UDim2.new(0.68, 0, 0, 150),
+	THEME.Accent2, THEME.Text)
+
+local ClickLoopButton = makeButton(MainPage, "Click Loop Fling: OFF",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 200),
+	THEME.Row, THEME.TextDim)
+
+-- ── Page: Whitelist ──────────────────────────────────
+local WlPage = Instance.new("Frame")
+WlPage.Size                   = UDim2.new(1, 0, 1, 0)
+WlPage.BackgroundTransparency = 1
+WlPage.Visible                = false
+WlPage.Parent                 = PageHolder
+
+local WlScroll = Instance.new("ScrollingFrame")
+WlScroll.Size                 = UDim2.new(1, 0, 1, 0)
+WlScroll.BackgroundColor3     = THEME.Panel
+WlScroll.BorderSizePixel      = 0
+WlScroll.ScrollBarThickness   = 4
+WlScroll.ScrollBarImageColor3 = THEME.Accent
+WlScroll.CanvasSize           = UDim2.new(0, 0, 0, 0)
+WlScroll.Parent               = WlPage
+addCorner(WlScroll, 8)
+
+local wlPad = Instance.new("UIPadding")
+wlPad.PaddingTop    = UDim.new(0, 6)
+wlPad.PaddingLeft   = UDim.new(0, 6)
+wlPad.PaddingRight  = UDim.new(0, 6)
+wlPad.PaddingBottom = UDim.new(0, 6)
+wlPad.Parent        = WlScroll
+
+local WlListLayout = Instance.new("UIListLayout")
+WlListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+WlListLayout.Padding   = UDim.new(0, 4)
+WlListLayout.Parent    = WlScroll
+
+-- ── Page: Looped ─────────────────────────────────────
+local LoopPage = Instance.new("Frame")
+LoopPage.Size                   = UDim2.new(1, 0, 1, 0)
+LoopPage.BackgroundTransparency = 1
+LoopPage.Visible                = false
+LoopPage.Parent                 = PageHolder
+
+local LoopScroll = Instance.new("ScrollingFrame")
+LoopScroll.Size                 = UDim2.new(1, 0, 1, 0)
+LoopScroll.BackgroundColor3     = THEME.Panel
+LoopScroll.BorderSizePixel      = 0
+LoopScroll.ScrollBarThickness   = 4
+LoopScroll.ScrollBarImageColor3 = THEME.Accent
+LoopScroll.CanvasSize           = UDim2.new(0, 0, 0, 0)
+LoopScroll.Parent               = LoopPage
+addCorner(LoopScroll, 8)
+
+local lpPad = Instance.new("UIPadding")
+lpPad.PaddingTop    = UDim.new(0, 6)
+lpPad.PaddingLeft   = UDim.new(0, 6)
+lpPad.PaddingRight  = UDim.new(0, 6)
+lpPad.PaddingBottom = UDim.new(0, 6)
+lpPad.Parent        = LoopScroll
+
+local LoopListLayout = Instance.new("UIListLayout")
+LoopListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+LoopListLayout.Padding   = UDim.new(0, 4)
+LoopListLayout.Parent    = LoopScroll
+
+-- ── Page: Misc ───────────────────────────────────────
+local MiscPage = Instance.new("Frame")
+MiscPage.Size                   = UDim2.new(1, 0, 1, 0)
+MiscPage.BackgroundTransparency = 1
+MiscPage.Visible                = false
+MiscPage.Parent                 = PageHolder
+
+local AntiAfkButton = makeButton(MiscPage, "Anti-AFK: OFF",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 0),
+	THEME.Row, THEME.TextDim)
+
+local FreecamButton = makeButton(MiscPage, "Freecam: OFF",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 50),
+	THEME.Row, THEME.TextDim)
+
+local TextureButton = makeButton(MiscPage, "Remove Textures",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 100),
+	THEME.Accent, THEME.Text)
+
+local EspButton = makeButton(MiscPage, "ESP: OFF",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 150),
+	THEME.Row, THEME.TextDim)
+
+local NameEspButton = makeButton(MiscPage, "Name ESP: OFF",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 200),
+	THEME.Row, THEME.TextDim)
+
+-- ── Page: Credits ────────────────────────────────────
+local CreditsPage = Instance.new("Frame")
+CreditsPage.Size                   = UDim2.new(1, 0, 1, 0)
+CreditsPage.BackgroundTransparency = 1
+CreditsPage.Visible                = false
+CreditsPage.Parent                 = PageHolder
+
+local CreditsTitle = Instance.new("TextLabel")
+CreditsTitle.Size                   = UDim2.new(1, 0, 0, 26)
+CreditsTitle.Position               = UDim2.new(0, 0, 0, 0)
+CreditsTitle.BackgroundTransparency = 1
+CreditsTitle.Text                   = "KYZEN — Universal Fling"
+CreditsTitle.TextColor3             = THEME.Text
+CreditsTitle.Font                   = Enum.Font.GothamBold
+CreditsTitle.TextSize               = 14
+CreditsTitle.Parent                 = CreditsPage
+
+local CreditsSub = Instance.new("TextLabel")
+CreditsSub.Size                   = UDim2.new(1, 0, 0, 20)
+CreditsSub.Position               = UDim2.new(0, 0, 0, 26)
+CreditsSub.BackgroundTransparency = 1
+CreditsSub.Text                   = "Original fling credits: poweringhate"
+CreditsSub.TextColor3             = THEME.TextDim
+CreditsSub.Font                   = Enum.Font.Gotham
+CreditsSub.TextSize               = 11
+CreditsSub.Parent                 = CreditsPage
+
+local GithubButton = makeButton(CreditsPage, "GitHub",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 60),
+	THEME.Accent, THEME.Text)
+
+local RobloxScriptsButton = makeButton(CreditsPage, "Roblox Scripts",
+	UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 0, 110),
+	THEME.Accent, THEME.Text)
+
+-- ── Hover tweens ─────────────────────────────────────
+hoverTween(ToggleButton,     THEME.Row, THEME.RowBrd)
+hoverTween(ClickLoopButton,  THEME.Row, THEME.RowBrd)
+hoverTween(AntiAfkButton,    THEME.Row, THEME.RowBrd)
+hoverTween(FreecamButton,    THEME.Row, THEME.RowBrd)
+hoverTween(EspButton,        THEME.Row, THEME.RowBrd)
+hoverTween(NameEspButton,    THEME.Row, THEME.RowBrd)
+hoverTween(WhitelistButton,  THEME.Accent, THEME.Accent2)
+hoverTween(FlingButton,      THEME.Accent, THEME.Accent2)
+hoverTween(LoopButton,       THEME.Accent, THEME.Accent2)
+hoverTween(UnloopButton,     THEME.Accent2, THEME.Accent)
+hoverTween(TextureButton,    THEME.Accent, THEME.Accent2)
+hoverTween(GithubButton,     THEME.Accent, THEME.Accent2)
+hoverTween(RobloxScriptsButton, THEME.Accent, THEME.Accent2)
+
+-- ── Tab switching ────────────────────────────────────
+local pages = {
+	Main      = MainPage,
+	Whitelist = WlPage,
+	Looped    = LoopPage,
+	Misc      = MiscPage,
+	Credits   = CreditsPage,
+}
+
+local function setTab(name)
+	currentActiveTab = name
+	for tabName, page in pairs(pages) do
+		page.Visible = (tabName == name)
+	end
+	for tabName, btn in pairs(tabButtons) do
+		if tabName == name then
+			btn.BackgroundColor3 = THEME.Accent
+			btn.TextColor3       = THEME.Text
+		else
+			btn.BackgroundColor3 = THEME.Row
+			btn.TextColor3       = THEME.TextDim
+		end
+	end
+end
+
+for tabName, btn in pairs(tabButtons) do
+	btn.MouseButton1Click:Connect(function() setTab(tabName) end)
+end
+
+-- ── Server Playerlist Panel ──────────────────────────
+local ListPanel = Instance.new("Frame")
+ListPanel.Name                   = "ListPanel"
+ListPanel.Size                   = UDim2.new(0, 260, 0, 420)
+ListPanel.Position               = UDim2.new(0, 450, 0.5, -210)
+ListPanel.BackgroundColor3       = THEME.Bg
+ListPanel.BorderSizePixel        = 0
+ListPanel.Active                 = true
+ListPanel.Parent                 = ScreenGui
+addCorner(ListPanel, 12)
+addRainbow(ListPanel, 2)
+makeDraggable(ListPanel)
+
+local ListTitleRow = Instance.new("Frame")
+ListTitleRow.Size                   = UDim2.new(1, -24, 0, 30)
+ListTitleRow.Position               = UDim2.new(0, 12, 0, 14)
+ListTitleRow.BackgroundTransparency = 1
+ListTitleRow.Parent                 = ListPanel
+
+local LogoList = Instance.new("ImageLabel")
+LogoList.Size                   = UDim2.new(0, 24, 0, 24)
+LogoList.Position               = UDim2.new(0, 0, 0.5, -12)
+LogoList.BackgroundTransparency = 1
+LogoList.Image                  = LOGO_ID
+LogoList.ScaleType              = Enum.ScaleType.Fit
+LogoList.Parent                 = ListTitleRow
+
+local ListTitle = Instance.new("TextLabel")
+ListTitle.Size                   = UDim2.new(1, -60, 1, 0)
+ListTitle.Position               = UDim2.new(0, 32, 0, 0)
+ListTitle.BackgroundTransparency = 1
+ListTitle.Text                   = "SERVER PLAYERS"
+ListTitle.TextColor3             = THEME.Accent
+ListTitle.Font                   = Enum.Font.GothamBold
+ListTitle.TextSize               = 13
+ListTitle.TextXAlignment         = Enum.TextXAlignment.Left
+ListTitle.Parent                 = ListTitleRow
+
+local CloseList = Instance.new("TextButton")
+CloseList.Size                   = UDim2.new(0, 22, 0, 22)
+CloseList.Position               = UDim2.new(1, -22, 0.5, -11)
+CloseList.BackgroundTransparency = 1
+CloseList.Text                   = "✕"
+CloseList.TextColor3             = THEME.TextDim
+CloseList.Font                   = Enum.Font.GothamBold
+CloseList.TextSize               = 15
+CloseList.AutoButtonColor        = false
+CloseList.Parent                 = ListTitleRow
+
+CloseList.MouseEnter:Connect(function() CloseList.TextColor3 = Color3.fromRGB(255, 120, 120) end)
+CloseList.MouseLeave:Connect(function() CloseList.TextColor3 = THEME.TextDim end)
+CloseList.MouseButton1Click:Connect(function()
+	ListPanel.Visible = false
+end)
+
+-- Buttons: Scan + Clear
+local ScanButton = makeButton(ListPanel, "Scan Playerlist",
+	UDim2.new(0.48, -3, 0, 32), UDim2.new(0, 12, 0, 52),
+	THEME.Accent, THEME.Text)
+
+local ClearButton = makeButton(ListPanel, "Clear Playerlist",
+	UDim2.new(0.48, -3, 0, 32), UDim2.new(0.52, 0, 0, 52),
+	THEME.Red, THEME.Text)
+
+hoverTween(ScanButton, THEME.Accent, THEME.Accent2)
+hoverTween(ClearButton, THEME.Red, Color3.fromRGB(240, 70, 70))
+
+-- Count label
+local CountLabel = Instance.new("TextLabel")
+CountLabel.Size                   = UDim2.new(1, -24, 0, 18)
+CountLabel.Position               = UDim2.new(0, 12, 0, 90)
+CountLabel.BackgroundTransparency = 1
+CountLabel.Text                   = "Players: 0"
+CountLabel.TextColor3             = THEME.TextDim
+CountLabel.Font                   = Enum.Font.Gotham
+CountLabel.TextSize               = 11
+CountLabel.TextXAlignment         = Enum.TextXAlignment.Left
+CountLabel.Parent                 = ListPanel
+
+-- Scroll list
+local ServerListScroll = Instance.new("ScrollingFrame")
+ServerListScroll.Size                 = UDim2.new(1, -24, 1, -150)
+ServerListScroll.Position             = UDim2.new(0, 12, 0, 112)
+ServerListScroll.BackgroundColor3     = THEME.Panel
+ServerListScroll.BorderSizePixel      = 0
+ServerListScroll.ScrollBarThickness   = 4
+ServerListScroll.ScrollBarImageColor3 = THEME.Accent
+ServerListScroll.CanvasSize           = UDim2.new(0, 0, 0, 0)
+ServerListScroll.Parent               = ListPanel
+addCorner(ServerListScroll, 8)
+
+local slPad = Instance.new("UIPadding")
+slPad.PaddingTop    = UDim.new(0, 6)
+slPad.PaddingLeft   = UDim.new(0, 6)
+slPad.PaddingRight  = UDim.new(0, 6)
+slPad.PaddingBottom = UDim.new(0, 6)
+slPad.Parent        = ServerListScroll
+
+local ServerListLayout = Instance.new("UIListLayout")
+ServerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ServerListLayout.Padding   = UDim.new(0, 4)
+ServerListLayout.Parent    = ServerListScroll
+
+ServerListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	ServerListScroll.CanvasSize = UDim2.new(0, 0, 0, ServerListLayout.AbsoluteContentSize.Y + 12)
+end)
+
+-- ── Refresh server playerlist ────────────────────────
+local function refreshServerList()
+	for _, child in ipairs(ServerListScroll:GetChildren()) do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+
+	local sorted = {}
+	for _, p in ipairs(Players:GetPlayers()) do table.insert(sorted, p) end
+	table.sort(sorted, function(a, b) return a.Name:lower() < b.Name:lower() end)
+
+	CountLabel.Text = "Players: " .. #sorted
+
+	for _, p in ipairs(sorted) do
+		local isSelf = (p == LocalPlayer)
+
+		local row = Instance.new("Frame")
+		row.Size             = UDim2.new(1, -8, 0, 30)
+		row.BackgroundColor3 = THEME.Row
+		row.BorderSizePixel  = 0
+		row.Parent           = ServerListScroll
+		addCorner(row, 6)
+
+		local rowStroke = Instance.new("UIStroke")
+		rowStroke.Thickness       = 1
+		rowStroke.Color           = THEME.RowBrd
+		rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		rowStroke.Parent          = row
+
+		local nameBtn = Instance.new("TextButton")
+		nameBtn.Size                   = UDim2.new(1, 0, 1, 0)
+		nameBtn.BackgroundTransparency = 1
+		nameBtn.Font                   = Enum.Font.Gotham
+		nameBtn.TextSize               = 12
+		nameBtn.TextColor3             = isSelf and THEME.Accent or THEME.Text
+		nameBtn.TextXAlignment         = Enum.TextXAlignment.Left
+		nameBtn.Text                   = "  " .. p.Name .. (isSelf and "  (you)" or "")
+		nameBtn.AutoButtonColor        = false
+		nameBtn.Parent                 = row
+
+		if not isSelf then
+			nameBtn.MouseEnter:Connect(function()
+				TweenService:Create(nameBtn, TweenInfo.new(0.15), { BackgroundTransparency = 0.85, BackgroundColor3 = THEME.Accent }):Play()
+			end)
+			nameBtn.MouseLeave:Connect(function()
+				TweenService:Create(nameBtn, TweenInfo.new(0.15), { BackgroundTransparency = 1 }):Play()
+			end)
+
+			nameBtn.MouseButton1Click:Connect(function()
+				LoopInput.Text = p.Name
+				notify("Selected: " .. p.Name)
+			end)
+		end
+	end
+end
+
+ScanButton.MouseButton1Click:Connect(function()
+	refreshServerList()
+	notify("Scanned playerlist")
+end)
+
+ClearButton.MouseButton1Click:Connect(function()
+	for _, child in ipairs(ServerListScroll:GetChildren()) do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+	CountLabel.Text = "Players: 0"
+	notify("Cleared playerlist")
+end)
+
+-- ── Reopen Button (bottom-center) ────────────────────
+local OpenButton = Instance.new("TextButton")
+OpenButton.Name                   = "OpenButton"
+OpenButton.Size                   = UDim2.new(0, 130, 0, 40)
+OpenButton.Position               = UDim2.new(0.5, -65, 1, -60)
+OpenButton.BackgroundColor3       = THEME.Bg
+OpenButton.BorderSizePixel        = 0
+OpenButton.Text                   = ""
+OpenButton.AutoButtonColor        = false
+OpenButton.Visible                = false
+OpenButton.Parent                 = ScreenGui
+addCorner(OpenButton, 10)
+addRainbow(OpenButton, 2)
+
+local OpenLogo = Instance.new("ImageLabel")
+OpenLogo.Size                   = UDim2.new(0, 24, 0, 24)
+OpenLogo.Position               = UDim2.new(0, 10, 0.5, -12)
+OpenLogo.BackgroundTransparency = 1
+OpenLogo.Image                  = LOGO_ID
+OpenLogo.ScaleType              = Enum.ScaleType.Fit
+OpenLogo.Parent                 = OpenButton
+
+local OpenLabel = Instance.new("TextLabel")
+OpenLabel.Size                   = UDim2.new(1, -42, 1, 0)
+OpenLabel.Position               = UDim2.new(0, 38, 0, 0)
+OpenLabel.BackgroundTransparency = 1
+OpenLabel.Text                   = "KYZEN"
+OpenLabel.TextColor3             = THEME.Accent
+OpenLabel.Font                   = Enum.Font.GothamBold
+OpenLabel.TextSize               = 14
+OpenLabel.TextXAlignment         = Enum.TextXAlignment.Left
+OpenLabel.Parent                 = OpenButton
+
+OpenButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = true
+	ListPanel.Visible = true
+	OpenButton.Visible = false
+end)
+
+-- Show open button when both panels are hidden
+local function updateOpenVisibility()
+	if not MainFrame.Visible and not ListPanel.Visible then
+		OpenButton.Visible = true
+	else
+		OpenButton.Visible = false
+	end
+end
+
+MainFrame:GetPropertyChangedSignal("Visible"):Connect(updateOpenVisibility)
+ListPanel:GetPropertyChangedSignal("Visible"):Connect(updateOpenVisibility)
+
+-- ── Notifications ────────────────────────────────────
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Size                   = UDim2.new(0, 320, 0, 70)
+NotificationFrame.Position               = UDim2.new(0.5, -160, 0.15, 0)
+NotificationFrame.BackgroundColor3       = THEME.Bg
+NotificationFrame.BorderSizePixel        = 0
+NotificationFrame.Visible                = false
+NotificationFrame.ZIndex                 = 100
+NotificationFrame.Parent                 = ScreenGui
+addCorner(NotificationFrame, 12)
+addRainbow(NotificationFrame, 2)
+
+local NotificationLabel = Instance.new("TextLabel")
+NotificationLabel.Size                   = UDim2.new(1, -20, 1, 0)
+NotificationLabel.Position               = UDim2.new(0, 10, 0, 0)
+NotificationLabel.BackgroundTransparency = 1
+NotificationLabel.Text                   = ""
+NotificationLabel.TextColor3             = THEME.Text
+NotificationLabel.Font                   = Enum.Font.GothamBold
+NotificationLabel.TextSize               = 13
+NotificationLabel.TextWrapped            = true
+NotificationLabel.ZIndex                 = 101
+NotificationLabel.Parent                 = NotificationFrame
+
+local notifThread = nil
+function notify(msg)
+	NotificationLabel.Text = msg
+	NotificationFrame.Visible = true
+	if notifThread then task.cancel(notifThread) end
+	notifThread = task.delay(2.5, function()
+		NotificationFrame.Visible = false
+	end)
+end
+
+local function copyToClipboard(url)
+	local clipFunc = (type(setclipboard) == "function" and setclipboard)
+		or (type(toclipboard) == "function" and toclipboard)
+		or (type(set_clipboard) == "function" and set_clipboard)
+		or (type(writeclipboard) == "function" and writeclipboard)
+	if clipFunc then pcall(clipFunc, url) end
+	notify("Link copied to clipboard!")
+end
+
+-- ── Helper: find player ──────────────────────────────
+local function findPlayer(name)
+	name = name:lower()
+	if name == "" then return nil end
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Name:lower() == name or p.DisplayName:lower() == name then return p end
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Name:lower():sub(1, #name) == name
+			or p.DisplayName:lower():sub(1, #name) == name then return p end
+	end
+	return nil
+end
+
+-- ── Whitelist view ───────────────────────────────────
+local function updateWhitelistView()
+	for _, child in ipairs(WlScroll:GetChildren()) do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+	for name, _ in pairs(whitelistedPlayers) do
+		local row = Instance.new("Frame")
+		row.Size             = UDim2.new(1, -8, 0, 26)
+		row.BackgroundColor3 = THEME.Row
+		row.BorderSizePixel  = 0
+		row.Parent           = WlScroll
+		addCorner(row, 6)
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size                   = UDim2.new(1, -34, 1, 0)
+		nameLabel.Position               = UDim2.new(0, 10, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text                   = name
+		nameLabel.TextColor3             = THEME.Text
+		nameLabel.Font                   = Enum.Font.Gotham
+		nameLabel.TextSize               = 12
+		nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
+		nameLabel.Parent                 = row
+
+		local x = Instance.new("TextButton")
+		x.Size             = UDim2.new(0, 20, 0, 20)
+		x.Position         = UDim2.new(1, -26, 0.5, -10)
+		x.BackgroundColor3 = THEME.Off
+		x.BorderSizePixel  = 0
+		x.Text             = "X"
+		x.TextColor3       = Color3.fromRGB(255, 120, 120)
+		x.Font             = Enum.Font.GothamBold
+		x.TextSize         = 11
+		x.AutoButtonColor  = false
+		x.Parent           = row
+		addCorner(x, 4)
+
+		x.MouseButton1Click:Connect(function()
+			whitelistedPlayers[name] = nil
+			updateWhitelistView()
+		end)
+	end
+	WlScroll.CanvasSize = UDim2.new(0, 0, 0, WlListLayout.AbsoluteContentSize.Y + 12)
+end
+
+-- ── Loop view ────────────────────────────────────────
+local function updateLoopView()
+	for _, child in ipairs(LoopScroll:GetChildren()) do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+	for name, _ in pairs(loopFlingPlayers) do
+		local row = Instance.new("Frame")
+		row.Size             = UDim2.new(1, -8, 0, 26)
+		row.BackgroundColor3 = THEME.Row
+		row.BorderSizePixel  = 0
+		row.Parent           = LoopScroll
+		addCorner(row, 6)
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size                   = UDim2.new(1, -34, 1, 0)
+		nameLabel.Position               = UDim2.new(0, 10, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text                   = name
+		nameLabel.TextColor3             = THEME.Text
+		nameLabel.Font                   = Enum.Font.Gotham
+		nameLabel.TextSize               = 12
+		nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
+		nameLabel.Parent                 = row
+
+		local x = Instance.new("TextButton")
+		x.Size             = UDim2.new(0, 20, 0, 20)
+		x.Position         = UDim2.new(1, -26, 0.5, -10)
+		x.BackgroundColor3 = THEME.Off
+		x.BorderSizePixel  = 0
+		x.Text             = "X"
+		x.TextColor3       = Color3.fromRGB(255, 120, 120)
+		x.Font             = Enum.Font.GothamBold
+		x.TextSize         = 11
+		x.AutoButtonColor  = false
+		x.Parent           = row
+		addCorner(x, 4)
+
+		x.MouseButton1Click:Connect(function()
+			loopFlingPlayers[name] = nil
+			updateLoopView()
+		end)
+	end
+	LoopScroll.CanvasSize = UDim2.new(0, 0, 0, LoopListLayout.AbsoluteContentSize.Y + 12)
+end
+
+-- ── Click Loop Fling ─────────────────────────────────
+local Mouse = LocalPlayer:GetMouse()
+local currentHighlight, highlightedChar = nil, nil
+
+local function clearHighlight()
+	if currentHighlight then currentHighlight:Destroy(); currentHighlight = nil end
+	highlightedChar = nil
+end
+
+local function getPlayerFromPart(part)
+	if not part then return nil end
+	local char = part.Parent
+	local player = Players:GetPlayerFromCharacter(char)
+	if player then return player, char end
+	char = part.Parent and part.Parent.Parent
+	player = Players:GetPlayerFromCharacter(char)
+	if player then return player, char end
+	return nil
+end
+
+ClickLoopButton.MouseButton1Click:Connect(function()
+	selectModeActive = not selectModeActive
+	if selectModeActive then
+		ClickLoopButton.Text             = "Click Loop Fling: ON"
+		ClickLoopButton.BackgroundColor3 = THEME.Accent
+		ClickLoopButton.TextColor3       = THEME.Text
+	else
+		ClickLoopButton.Text             = "Click Loop Fling: OFF"
+		ClickLoopButton.BackgroundColor3 = THEME.Row
+		ClickLoopButton.TextColor3       = THEME.TextDim
+		clearHighlight()
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if selectModeActive then
+		local player, char = getPlayerFromPart(Mouse.Target)
+		if player and player ~= LocalPlayer then
+			if highlightedChar ~= char then
+				clearHighlight()
+				highlightedChar = char
+				currentHighlight = Instance.new("Highlight")
+				currentHighlight.FillColor          = THEME.Accent
+				currentHighlight.OutlineColor       = THEME.Accent
+				currentHighlight.FillTransparency   = 0.6
+				currentHighlight.OutlineTransparency= 0
+				currentHighlight.Adornee            = char
+				currentHighlight.Parent             = ScreenGui
+			end
+		else
+			clearHighlight()
+		end
+	else
+		clearHighlight()
+	end
+end)
+
+Mouse.Button1Down:Connect(function()
+	if selectModeActive then
+		local player = getPlayerFromPart(Mouse.Target)
+		if player and player ~= LocalPlayer then
+			local name = player.Name:lower()
+			if not loopFlingPlayers[name] then
+				loopFlingPlayers[name] = true
+				updateLoopView()
+			end
+		end
+	end
+end)
+
+-- ── Fling All toggle ─────────────────────────────────
+ToggleButton.MouseButton1Click:Connect(function()
+	isActive = not isActive
+	if isActive then
+		ToggleButton.Text             = "Fling All: ON"
+		ToggleButton.BackgroundColor3 = THEME.Accent
+		ToggleButton.TextColor3       = THEME.Text
+	else
+		ToggleButton.Text             = "Fling All: OFF"
+		ToggleButton.BackgroundColor3 = THEME.Row
+		ToggleButton.TextColor3       = THEME.TextDim
+	end
+end)
+
+-- ── Whitelist button ─────────────────────────────────
+WhitelistButton.MouseButton1Click:Connect(function()
+	local target = findPlayer(WhitelistInput.Text)
+	if target then
+		local name = target.Name:lower()
+		if whitelistedPlayers[name] then
+			whitelistedPlayers[name] = nil
+			notify("Removed " .. target.Name .. " from whitelist")
+		else
+			whitelistedPlayers[name] = true
+			notify("Whitelisted " .. target.Name)
+		end
+		WhitelistInput.Text = ""
+		updateWhitelistView()
+	else
+		notify("Player not found!")
+	end
+end)
+
+-- ── Fling button ─────────────────────────────────────
+FlingButton.MouseButton1Click:Connect(function()
+	local target = findPlayer(LoopInput.Text)
+	if target then
+		if target ~= LocalPlayer
+			and not whitelistedPlayers[target.Name:lower()]
+			and target.Character
+			and target.Character:FindFirstChild("HumanoidRootPart") then
+			notify("Flinging " .. target.Name)
+			task.spawn(flingPlayer, target)
+		end
+		LoopInput.Text = ""
+	else
+		notify("Player not found!")
+	end
+end)
+
+-- ── Loop button ──────────────────────────────────────
+LoopButton.MouseButton1Click:Connect(function()
+	local target = findPlayer(LoopInput.Text)
+	if target then
+		loopFlingPlayers[target.Name:lower()] = true
+		notify("Looping " .. target.Name)
+		LoopInput.Text = ""
+		updateLoopView()
+	else
+		notify("Player not found!")
+	end
+end)
+
+-- ── Unloop button ────────────────────────────────────
+UnloopButton.MouseButton1Click:Connect(function()
+	local target = findPlayer(LoopInput.Text)
+	if target then
+		loopFlingPlayers[target.Name:lower()] = nil
+		notify("Unlooped " .. target.Name)
+		LoopInput.Text = ""
+		updateLoopView()
+	else
+		notify("Player not found!")
+	end
+end)
+
+-- ── Misc: Anti-AFK ───────────────────────────────────
+AntiAfkButton.MouseButton1Click:Connect(function()
+	antiAfkActive = not antiAfkActive
+	if antiAfkActive then
+		AntiAfkButton.Text             = "Anti-AFK: ON"
+		AntiAfkButton.BackgroundColor3 = THEME.Accent
+		AntiAfkButton.TextColor3       = THEME.Text
+	else
+		AntiAfkButton.Text             = "Anti-AFK: OFF"
+		AntiAfkButton.BackgroundColor3 = THEME.Row
+		AntiAfkButton.TextColor3       = THEME.TextDim
+	end
+end)
+
+LocalPlayer.Idled:Connect(function()
+	if antiAfkActive then
+		local vu = game:GetService("VirtualUser")
+		vu:CaptureController()
+		vu:ClickButton2(Vector2.new(0, 0))
+	end
+end)
+
+-- ── Misc: Freecam ────────────────────────────────────
+local camX, camY = 0, 0
+local camPos = Vector3.new(0, 0, 0)
+local isRightMouseDown = false
+local oldWalkSpeed = 16
+local cameraController = nil
+do
+	local ok, module = pcall(function()
+		return require(LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+	end)
+	if ok and module then
+		local ok2, cams = pcall(function() return module:GetCameras() end)
+		if ok2 then cameraController = cams end
+	end
+end
+
+FreecamButton.MouseButton1Click:Connect(function()
+	freecamActive = not freecamActive
+	local camera = workspace.CurrentCamera
+	if freecamActive then
+		FreecamButton.Text             = "Freecam: ON"
+		FreecamButton.BackgroundColor3 = THEME.Accent
+		FreecamButton.TextColor3       = THEME.Text
+
+		if cameraController then pcall(function() cameraController:Disable() end) end
+
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.CameraSubject = nil
+		camX = math.floor(math.deg(math.atan2(-camera.CFrame.LookVector.X, -camera.CFrame.LookVector.Z)))
+		camY = math.floor(math.deg(math.asin(math.clamp(camera.CFrame.LookVector.Y, -1, 1))))
+		camPos = camera.CFrame.Position
+		if LocalPlayer.Character then
+			local h = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+			if h then oldWalkSpeed = h.WalkSpeed; h.WalkSpeed = 0 end
+		end
+	else
+		FreecamButton.Text             = "Freecam: OFF"
+		FreecamButton.BackgroundColor3 = THEME.Row
+		FreecamButton.TextColor3       = THEME.TextDim
+
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		camera.CameraType = Enum.CameraType.Custom
+		if LocalPlayer.Character then
+			local h = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+			if h then h.WalkSpeed = oldWalkSpeed; camera.CameraSubject = h end
+		end
+		if cameraController then pcall(function() cameraController:Enable() end) end
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		isRightMouseDown = true
+		if freecamActive then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		isRightMouseDown = false
+		if freecamActive then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		end
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if freecamActive and isRightMouseDown and input.UserInputType == Enum.UserInputType.MouseMovement then
+		camX = camX - input.Delta.X * 0.4
+		camY = math.clamp(camY - input.Delta.Y * 0.4, -80, 80)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if freecamActive then
+		local camera = workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Scriptable
+		if isRightMouseDown then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+		else
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		end
+		local rotationCFrame = CFrame.Angles(0, math.rad(camX), 0) * CFrame.Angles(math.rad(camY), 0, 0)
+		local moveVector = Vector3.zero
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + rotationCFrame.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - rotationCFrame.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - rotationCFrame.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + rotationCFrame.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveVector = moveVector + Vector3.new(0, 1, 0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveVector = moveVector - Vector3.new(0, 1, 0) end
+		if moveVector.Magnitude > 0 then
+			camPos = camPos + moveVector.Unit * 1.5
+		end
+		camera.CFrame = CFrame.new(camPos) * rotationCFrame
+	end
+end)
+
+-- ── Misc: Remove textures ────────────────────────────
+TextureButton.MouseButton1Click:Connect(function()
+	notify("Clearing textures...")
+	for _, v in ipairs(workspace:GetDescendants()) do
+		if v:IsA("Texture") or v:IsA("Decal") or v:IsA("Sky") then
+			v:Destroy()
+		elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
+			v.Material = Enum.Material.SmoothPlastic
+		end
+	end
+end)
+
+-- ── Misc: ESP ────────────────────────────────────────
+local boxHighlights = {}
+local nameGuis = {}
+
+local function addBoxEsp(player)
+	if player == LocalPlayer then return end
+	local function onChar(char)
+		if not boxEspActive then return end
+		if boxHighlights[player] then boxHighlights[player]:Destroy() end
+		local h = Instance.new("Highlight")
+		h.Name                = "BoxESP"
+		h.FillTransparency    = 1
+		h.OutlineColor        = THEME.Accent
+		h.OutlineTransparency = 0
+		h.Adornee             = char
+		h.Parent              = ScreenGui
+		boxHighlights[player] = h
+	end
+	player.CharacterAdded:Connect(onChar)
+	if player.Character then onChar(player.Character) end
+end
+
+local function removeBoxEsp()
+	for _, h in pairs(boxHighlights) do
+		if h then h:Destroy() end
+	end
+	table.clear(boxHighlights)
+end
+
+EspButton.MouseButton1Click:Connect(function()
+	boxEspActive = not boxEspActive
+	if boxEspActive then
+		EspButton.Text             = "ESP: ON"
+		EspButton.BackgroundColor3 = THEME.Accent
+		EspButton.TextColor3       = THEME.Text
+		for _, p in ipairs(Players:GetPlayers()) do addBoxEsp(p) end
+	else
+		EspButton.Text             = "ESP: OFF"
+		EspButton.BackgroundColor3 = THEME.Row
+		EspButton.TextColor3       = THEME.TextDim
+		removeBoxEsp()
+	end
+end)
+
+local function addNameEsp(player)
+	if player == LocalPlayer then return end
+	local function onChar(char)
+		if not nameEspActive then return end
+		if nameGuis[player] then nameGuis[player]:Destroy() end
+		local head = char:WaitForChild("Head", 5)
+		if not head then return end
+		local bbg = Instance.new("BillboardGui")
+		bbg.Size           = UDim2.new(0, 200, 0, 40)
+		bbg.AlwaysOnTop    = true
+		bbg.ExtentsOffset  = Vector3.new(0, 2.5, 0)
+		bbg.Adornee        = head
+		local label = Instance.new("TextLabel")
+		label.Size                   = UDim2.new(1, 0, 1, 0)
+		label.BackgroundTransparency = 1
+		label.Text                   = player.DisplayName .. " (@" .. player.Name .. ")"
+		label.TextColor3             = THEME.Accent
+		label.Font                   = Enum.Font.GothamBold
+		label.TextSize               = 13
+		label.TextStrokeTransparency = 0
+		label.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+		label.Parent                 = bbg
+		bbg.Parent                   = ScreenGui
+		nameGuis[player]             = bbg
+	end
+	player.CharacterAdded:Connect(onChar)
+	if player.Character then task.spawn(onChar, player.Character) end
+end
+
+local function removeNameEsp()
+	for _, g in pairs(nameGuis) do
+		if g then g:Destroy() end
+	end
+	table.clear(nameGuis)
+end
+
+NameEspButton.MouseButton1Click:Connect(function()
+	nameEspActive = not nameEspActive
+	if nameEspActive then
+		NameEspButton.Text             = "Name ESP: ON"
+		NameEspButton.BackgroundColor3 = THEME.Accent
+		NameEspButton.TextColor3       = THEME.Text
+		for _, p in ipairs(Players:GetPlayers()) do addNameEsp(p) end
+	else
+		NameEspButton.Text             = "Name ESP: OFF"
+		NameEspButton.BackgroundColor3 = THEME.Row
+		NameEspButton.TextColor3       = THEME.TextDim
+		removeNameEsp()
+	end
+end)
+
+-- ── Credits buttons ──────────────────────────────────
+GithubButton.MouseButton1Click:Connect(function()
+	copyToClipboard("@ZenoScriptR3")
+end)
+
+RobloxScriptsButton.MouseButton1Click:Connect(function()
+	copyToClipboard("Hell Nah")
+end)
+
+-- ── Right Shift toggle ───────────────────────────────
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
+		local anyVisible = MainFrame.Visible or ListPanel.Visible
+		if anyVisible then
+			MainFrame.Visible = false
+			ListPanel.Visible = false
+		else
+			MainFrame.Visible = true
+			ListPanel.Visible = true
+		end
+		if not MainFrame.Visible and not ListPanel.Visible then
+			clearHighlight()
+		end
+	end
+end)
+
+-- ── Players added/removed ────────────────────────────
+Players.PlayerAdded:Connect(function(p)
+	if boxEspActive  then addBoxEsp(p)  end
+	if nameEspActive then addNameEsp(p) end
+	refreshServerList()
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+	if boxHighlights[p] then boxHighlights[p]:Destroy(); boxHighlights[p] = nil end
+	if nameGuis[p]      then nameGuis[p]:Destroy();      nameGuis[p]      = nil end
+	refreshServerList()
+end)
+
+-- ── Fling All loop ───────────────────────────────────
+task.spawn(function()
+	while true do
+		if isActive then
+			for _, player in ipairs(Players:GetPlayers()) do
+				if not isActive then break end
+				if player ~= LocalPlayer
+					and not whitelistedPlayers[player.Name:lower()]
+					and player.Character
+					and player.Character:FindFirstChild("HumanoidRootPart") then
+					local char = LocalPlayer.Character
+					local hum  = char and char:FindFirstChildOfClass("Humanoid")
+					if hum and hum.Health > 0 then
+						flingPlayer(player)
+						task.wait(delayBetweenPlayers)
+					end
+				end
+			end
+		end
+		task.wait(0.5)
+	end
+end)
+
+-- ── Loop Fling handler ───────────────────────────────
+task.spawn(function()
+	while true do
+		local hasTarget = false
+		for name, _ in pairs(loopFlingPlayers) do
+			local player = nil
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p.Name:lower() == name then player = p; break end
+			end
+			if player and player ~= LocalPlayer
+				and not whitelistedPlayers[player.Name:lower()]
+				and player.Character
+				and player.Character:FindFirstChild("HumanoidRootPart") then
+				local char = LocalPlayer.Character
+				local hum  = char and char:FindFirstChildOfClass("Humanoid")
+				if hum and hum.Health > 0 then
+					hasTarget = true
+					flingPlayer(player)
+					task.wait(delayBetweenPlayers)
+				end
+			end
+		end
+		if not hasTarget then task.wait(0.5) end
+	end
+end)
+
+-- ── Auto noclip ──────────────────────────────────────
+RunService.Stepped:Connect(function()
+	local character = LocalPlayer.Character
+	if character then
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") and part.CanCollide then
+				part.CanCollide = false
+			end
+		end
+	end
+end)
+
+-- ── Init ─────────────────────────────────────────────
+setTab("Main")
+updateWhitelistView()
+updateLoopView()
+refreshServerList()
+notify("Fling lol!")
